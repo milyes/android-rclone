@@ -1,0 +1,8 @@
+{
+  "name": "Audio Sync Hub",
+  "description": "Voice recorder, Google Drive \u0026 rclone sync manager, Termux command macros, and AI audio analyzer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
