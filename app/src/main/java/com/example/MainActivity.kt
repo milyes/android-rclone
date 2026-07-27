@@ -27,6 +27,7 @@ import com.example.ui.theme.AudioSyncHubTheme
 import com.example.ui.components.PlayStoreListingDialog
 import com.example.ui.components.CameraCaptureDialog
 import com.example.ui.components.ThemePickerDialog
+import com.example.ui.components.LicenseDialog
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -61,6 +62,13 @@ fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel()) {
   var showPlayStoreDialog by remember { mutableStateOf(false) }
   var showCameraDialog by remember { mutableStateOf(false) }
   var showThemeDialog by remember { mutableStateOf(false) }
+  var showLicenseDialog by remember { mutableStateOf(false) }
+
+  if (showLicenseDialog) {
+    LicenseDialog(
+      onDismissRequest = { showLicenseDialog = false }
+    )
+  }
 
   if (showPlayStoreDialog) {
     PlayStoreListingDialog(
@@ -104,6 +112,17 @@ fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel()) {
           }
         },
         actions = {
+          IconButton(
+            onClick = { showLicenseDialog = true },
+            modifier = Modifier.testTag("top_bar_license_btn")
+          ) {
+            Icon(
+              imageVector = Icons.Filled.VerifiedUser,
+              contentDescription = "Licence NETSECUREPRO IA",
+              tint = MaterialTheme.colorScheme.primary
+            )
+          }
+
           IconButton(
             onClick = { showThemeDialog = true },
             modifier = Modifier.testTag("top_bar_theme_btn")

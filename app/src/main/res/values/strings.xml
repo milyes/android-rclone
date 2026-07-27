@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Audio Sync Hub</string>
+    <string name="license_netsecurepro_ia">Licence NETSECUREPRO IA Enterprise</string>
+    <string name="license_status">Licence Active et Certifiée</string>
 </resources>
