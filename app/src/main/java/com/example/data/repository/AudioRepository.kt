@@ -5,8 +5,13 @@ import com.example.data.local.AppDatabase
 import com.example.data.model.AudioRecording
 import com.example.data.model.CommandMacro
 import com.example.data.model.SyncLog
+import com.example.data.model.RcloneRemote
 import com.example.data.service.GeminiAudioAnalysisResult
 import com.example.data.service.GeminiAudioAnalysisService
+import com.example.data.service.GoogleDriveApiService
+import com.example.data.service.GoogleDriveApiServiceImpl
+import com.example.data.service.DriveAudioFile
+import com.example.data.service.DriveUploadResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -24,9 +29,14 @@ class AudioRepository(
         context?.let { GeminiAudioAnalysisService(it) }
     }
 
+    val googleDriveApiService: GoogleDriveApiService? by lazy {
+        context?.let { GoogleDriveApiServiceImpl(it) }
+    }
+
     val allRecordings: Flow<List<AudioRecording>> = db.audioRecordingDao().getAllRecordings()
     val allSyncLogs: Flow<List<SyncLog>> = db.syncLogDao().getAllSyncLogs()
     val allMacros: Flow<List<CommandMacro>> = db.commandMacroDao().getAllMacros()
+    val allRemotes: Flow<List<RcloneRemote>> = db.rcloneRemoteDao().getAllRemotes()
 
     fun searchRecordings(query: String): Flow<List<AudioRecording>> {
         val dateFormatIso = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
@@ -106,6 +116,24 @@ class AudioRepository(
                     description = "Envoie le fichier directement à la racine de Google Drive."
                 ),
                 CommandMacro(
+                    name = "Rclone Cloud Cleanup (>30 days)",
+                    category = "CLEANUP",
+                    commandText = "rclone delete gdrive:/Z-CORE/Captures/ --min-age 30d",
+                    description = "Supprime les fichiers vieux de plus de 30 jours sur Google Drive."
+                ),
+                CommandMacro(
+                    name = "Rclone Empty Trash",
+                    category = "CLEANUP",
+                    commandText = "rclone cleanup gdrive:",
+                    description = "Vide la corbeille Google Drive pour libérer de l'espace cloud."
+                ),
+                CommandMacro(
+                    name = "Local Cache Cleanup",
+                    category = "CLEANUP",
+                    commandText = "rm -rf ~/.cache/* && echo 'Cache vidé'",
+                    description = "Supprime les fichiers temporaires locaux du terminal Termux."
+                ),
+                CommandMacro(
                     name = "Setup Termux API Tools",
                     category = "TERMUX",
                     commandText = "pkg update && pkg install termux-api",
@@ -134,18 +162,6 @@ class AudioRepository(
                     category = "ADB",
                     commandText = "adb shell input swipe 500 1500 500 500 200",
                     description = "Simule un glissement vers le haut pour afficher l'écran de déverrouillage."
-                ),
-                CommandMacro(
-                    name = "Z_GHOST Trailer Wakeup (Fido)",
-                    category = "Z_GHOST",
-                    commandText = "mode Z_GHOST_TLE wakeup --target +14389855041 --network FIDO --trailer-ghost",
-                    description = "Commande de réveil à distance Z_GHOST Trailer via le réseau cellulaire Fido (+1 438 985-5041)."
-                ),
-                CommandMacro(
-                    name = "Appel Trailer Ghost (Réseau Fido)",
-                    category = "Z_GHOST",
-                    commandText = "termux-telephony-call +14389855041",
-                    description = "Déclenche un appel cellulaire direct vers le terminal Trailer Ghost sur le réseau Fido."
                 )
             )
             db.commandMacroDao().insertAll(initialMacros)
@@ -187,6 +203,18 @@ class AudioRepository(
         db.commandMacroDao().toggleFavorite(id, !currentFav)
     }
 
+    suspend fun saveMacro(macro: CommandMacro): Long = withContext(Dispatchers.IO) {
+        db.commandMacroDao().insertMacro(macro)
+    }
+
+    suspend fun saveRcloneRemote(remote: RcloneRemote): Long = withContext(Dispatchers.IO) {
+        db.rcloneRemoteDao().insertRemote(remote)
+    }
+
+    suspend fun deleteRcloneRemote(remote: RcloneRemote) = withContext(Dispatchers.IO) {
+        db.rcloneRemoteDao().deleteRemote(remote)
+    }
+
     suspend fun analyzeAudioWithGemini(
         recording: AudioRecording,
         userPrompt: String? = null,
@@ -216,5 +244,43 @@ class AudioRepository(
     suspend fun generateAiSummary(recording: AudioRecording, apiKey: String): String = withContext(Dispatchers.IO) {
         val result = analyzeAudioWithGemini(recording, null, apiKey)
         result.summary
+    }
+
+    // --- Google Drive API Service Layer Operations ---
+
+    suspend fun listDriveAudioFiles(
+        folderId: String? = null,
+        query: String? = null,
+        pageSize: Int = 50,
+        accessToken: String? = null
+    ): Result<List<DriveAudioFile>> = withContext(Dispatchers.IO) {
+        val service = googleDriveApiService ?: return@withContext Result.failure(Exception("GoogleDriveApiService indisponible"))
+        service.listAudioFiles(folderId, query, pageSize, accessToken)
+    }
+
+    suspend fun uploadAudioToDrive(
+        recording: AudioRecording,
+        folderId: String? = null,
+        accessToken: String? = null,
+        onProgress: (suspend (Int) -> Unit)? = null
+    ): Result<DriveUploadResult> = withContext(Dispatchers.IO) {
+        val service = googleDriveApiService ?: return@withContext Result.failure(Exception("GoogleDriveApiService indisponible"))
+        service.uploadAudioFile(recording, folderId, accessToken, onProgress)
+    }
+
+    suspend fun searchDriveAudioFiles(
+        keyword: String,
+        accessToken: String? = null
+    ): Result<List<DriveAudioFile>> = withContext(Dispatchers.IO) {
+        val service = googleDriveApiService ?: return@withContext Result.failure(Exception("GoogleDriveApiService indisponible"))
+        service.searchAudioFiles(keyword, accessToken)
+    }
+
+    suspend fun deleteDriveAudioFile(
+        fileId: String,
+        accessToken: String? = null
+    ): Result<Boolean> = withContext(Dispatchers.IO) {
+        val service = googleDriveApiService ?: return@withContext Result.failure(Exception("GoogleDriveApiService indisponible"))
+        service.deleteAudioFile(fileId, accessToken)
     }
 }

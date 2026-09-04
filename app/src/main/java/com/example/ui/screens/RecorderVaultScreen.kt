@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.Manifest
+import android.os.Build
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -45,6 +46,9 @@ fun RecorderVaultScreen(
     val selectedIds by viewModel.selectedRecordingIds.collectAsState()
 
     val micPermissionState = rememberPermissionState(permission = Manifest.permission.RECORD_AUDIO)
+    val notifPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberPermissionState(permission = Manifest.permission.POST_NOTIFICATIONS)
+    } else null
 
     var customNameInput by remember { mutableStateOf("enregistrement_ghost_vocal") }
 
@@ -175,6 +179,32 @@ fun RecorderVaultScreen(
                     }
                 }
 
+                if (recorderState.isRecording) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.NotificationsActive,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Service d'arrière-plan actif • Notification permanente",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Timer Display
@@ -262,6 +292,9 @@ fun RecorderVaultScreen(
                         Button(
                             onClick = {
                                 if (micPermissionState.status.isGranted) {
+                                    if (notifPermissionState != null && !notifPermissionState.status.isGranted) {
+                                        notifPermissionState.launchPermissionRequest()
+                                    }
                                     viewModel.startRecording(customNameInput)
                                 } else {
                                     micPermissionState.launchPermissionRequest()
@@ -291,6 +324,21 @@ fun RecorderVaultScreen(
                             Icon(
                                 imageVector = if (recorderState.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
                                 contentDescription = if (recorderState.isPaused) "Reprendre" else "Pause"
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.cancelRecording() },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f))
+                                .testTag("cancel_recording_btn")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteOutline,
+                                contentDescription = "Annuler l'enregistrement",
+                                tint = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
 

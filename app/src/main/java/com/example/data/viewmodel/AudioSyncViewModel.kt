@@ -9,10 +9,17 @@ import com.example.data.local.AppDatabase
 import com.example.data.model.AudioRecording
 import com.example.data.model.CommandMacro
 import com.example.data.model.SyncLog
+import com.example.data.model.RcloneRemote
 import com.example.data.repository.AudioRepository
 import com.example.data.repository.TermuxRepository
 import com.example.data.audio.AudioRecorderManager
 import com.example.data.audio.AudioPlayerManager
+import com.example.data.audio.AudioRecordingService
+import com.example.data.local.AudioSyncPreferences
+import com.example.data.service.GoogleDriveApiService
+import com.example.data.service.GoogleDriveApiServiceImpl
+import com.example.data.service.DriveAudioFile
+import com.example.data.service.DriveUploadResult
 import com.example.data.sync.GoogleDriveSyncService
 import com.example.data.sync.RcloneTermuxBackgroundSyncService
 import com.example.ui.theme.AppThemeMode
@@ -51,13 +58,27 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
     private val recorderManager = AudioRecorderManager(application)
     private val playerManager = AudioPlayerManager(application)
     private val googleDriveSyncService = GoogleDriveSyncService(application)
+    private val googleDriveApiService: GoogleDriveApiService = GoogleDriveApiServiceImpl(application)
+    private val safDriveService = com.example.data.sync.SafDriveIntegrationService(application)
     val termuxRepository = TermuxRepository(application)
 
     val currentTab = MutableStateFlow(NavigationTab.RECORDER_VAULT)
     val searchQuery = MutableStateFlow("")
-    val isAutoSyncEnabled = MutableStateFlow(true)
+    val isAutoSyncEnabled = MutableStateFlow(AudioSyncPreferences.isAutoSyncEnabled(application))
     val appThemeMode = MutableStateFlow(AppThemeMode.DARK)
     val isDynamicColorEnabled = MutableStateFlow(false)
+    
+    val selectedDriveFolderUri = MutableStateFlow<String?>(null)
+
+    // Google Drive API Service Layer Reactive State
+    val driveAudioFiles = MutableStateFlow<List<DriveAudioFile>>(emptyList())
+    val isDriveLoading = MutableStateFlow(false)
+    val driveSearchQuery = MutableStateFlow("")
+    val driveAccessToken = MutableStateFlow<String?>(null)
+
+    fun setDriveFolderUri(uri: String) {
+        selectedDriveFolderUri.value = uri
+    }
 
     fun setAppThemeMode(mode: AppThemeMode) {
         appThemeMode.value = mode
@@ -80,6 +101,9 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
     val macros: StateFlow<List<CommandMacro>> = repository.allMacros
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val rcloneRemotes: StateFlow<List<RcloneRemote>> = repository.allRemotes
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val playerState = MutableStateFlow(PlayerState())
     val recorderState = MutableStateFlow(RecorderState())
 
@@ -100,6 +124,12 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
     init {
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty()
+            refreshDriveAudioFiles()
+        }
+        viewModelScope.launch {
+            AudioRecordingService.serviceState.collect { state ->
+                recorderState.value = state
+            }
         }
     }
 
@@ -111,7 +141,7 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
         searchQuery.value = query
     }
 
-    // --- Audio Recording Actions using MediaRecorder API ---
+    // --- Audio Recording Actions via Foreground Service ---
     fun toggleRecording(customName: String? = null) {
         if (recorderState.value.isRecording) {
             stopAndSaveRecording()
@@ -124,128 +154,23 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
         if (recorderState.value.isRecording) return
 
         val rawName = customName?.ifBlank { "enregistrement_vocal" } ?: "enregistrement_ghost_vocal"
-        val cleanName = rawName.replace("[^a-zA-Z0-9_-]".toRegex(), "_")
-        val fileName = if (cleanName.endsWith(".mp4") || cleanName.endsWith(".m4a") || cleanName.endsWith(".wav")) {
-            cleanName
-        } else {
-            "${cleanName}.m4a"
-        }
-
-        val outputDir = File(getApplication<Application>().filesDir, "recordings")
-        if (!outputDir.exists()) {
-            outputDir.mkdirs()
-        }
-        val outputFile = File(outputDir, fileName)
-
-        val success = recorderManager.start(outputFile)
-        if (!success) {
-            Toast.makeText(getApplication(), "Initialisation du microphone en cours...", Toast.LENGTH_SHORT).show()
-        }
-
-        recorderState.value = RecorderState(
-            isRecording = true,
-            isPaused = false,
-            durationSeconds = 0,
-            liveAmplitudes = emptyList(),
-            recordingName = cleanName
-        )
-
-        recordingJob?.cancel()
-        recordingJob = viewModelScope.launch {
-            var elapsedMs = 0L
-            while (recorderState.value.isRecording) {
-                delay(100)
-                if (!recorderState.value.isPaused) {
-                    elapsedMs += 100
-                    val seconds = (elapsedMs / 1000).toInt()
-
-                    val rawAmp = recorderManager.getMaxAmplitude()
-                    val normalizedAmp = if (rawAmp > 0) {
-                        ((rawAmp / 32767f) * 85 + 15).toInt().coerceIn(15, 98)
-                    } else {
-                        (25..88).random()
-                    }
-
-                    val currentAmps = (recorderState.value.liveAmplitudes.takeLast(30) + normalizedAmp)
-                    recorderState.value = recorderState.value.copy(
-                        durationSeconds = seconds,
-                        liveAmplitudes = currentAmps
-                    )
-                }
-            }
-        }
+        AudioRecordingService.startRecording(getApplication(), rawName)
     }
 
     fun togglePauseRecording() {
-        val current = recorderState.value
-        if (!current.isRecording) return
-
-        if (current.isPaused) {
-            recorderManager.resume()
-            recorderState.value = current.copy(isPaused = false)
-        } else {
-            recorderManager.pause()
-            recorderState.value = current.copy(isPaused = true)
-        }
+        AudioRecordingService.togglePause(getApplication())
     }
 
     fun stopAndSaveRecording() {
-        val state = recorderState.value
-        if (!state.isRecording) return
+        AudioRecordingService.stopAndSave(getApplication())
+    }
 
-        recordingJob?.cancel()
-
-        val recordedFile = recorderManager.stop()
-        recorderState.value = RecorderState()
-
-        viewModelScope.launch {
-            val fileName = if (state.recordingName.endsWith(".m4a") || state.recordingName.endsWith(".mp4") || state.recordingName.endsWith(".wav")) {
-                state.recordingName
-            } else {
-                "${state.recordingName}.m4a"
-            }
-
-            val duration = maxOf(state.durationSeconds, 1)
-            val fileSizeBytes = recordedFile?.length() ?: 0L
-            val fileSizeMb = if (fileSizeBytes > 0) {
-                String.format("%.2f", fileSizeBytes / (1024f * 1024f)).toFloat()
-            } else {
-                String.format("%.2f", duration * 0.16f).toFloat()
-            }
-
-            val ampCsv = if (state.liveAmplitudes.isNotEmpty()) state.liveAmplitudes.joinToString(",")
-            else "25,45,65,85,90,75,60,40,80,95,70,50,30,60,80,90,60,40,25,50"
-
-            val localPath = recordedFile?.absolutePath ?: "./storage/$fileName"
-
-            val newRec = AudioRecording(
-                title = state.recordingName.replace("_", " ").replaceFirstChar { it.uppercase() },
-                fileName = fileName,
-                durationSeconds = duration,
-                fileSizeMb = fileSizeMb,
-                localPath = localPath,
-                cloudPath = "gdrive:/Z-CORE/Captures/$fileName",
-                isSynced = false,
-                syncStatus = "LOCAL_ONLY",
-                sourceStream = "Flux WAY (MediaRecorder)",
-                transcription = "Enregistrement audio capturé via le microphone (MediaRecorder API). Durée: ${duration}s. Fichier: $fileName.",
-                aiSummary = "Nouveau fichier enregistré avec succès via l'API Android MediaRecorder: $localPath.",
-                waveformData = ampCsv
-            )
-            val insertedId = repository.insertRecording(newRec)
-            Toast.makeText(getApplication(), "Enregistrement sauvegardé: $fileName (${fileSizeMb}MB)", Toast.LENGTH_SHORT).show()
-
-            if (isAutoSyncEnabled.value) {
-                val savedRec = newRec.copy(id = insertedId)
-                syncRecordingToGoogleDrive(savedRec)
-                RcloneTermuxBackgroundSyncService.enqueueSync(getApplication(), insertedId)
-            }
-        }
+    fun cancelRecording() {
+        AudioRecordingService.cancel(getApplication())
     }
 
     override fun onCleared() {
         super.onCleared()
-        recorderManager.cancel()
         playerManager.stop()
     }
 
@@ -359,6 +284,7 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun toggleAutoSync(enabled: Boolean) {
         isAutoSyncEnabled.value = enabled
+        AudioSyncPreferences.setAutoSyncEnabled(getApplication(), enabled)
         if (enabled) {
             RcloneTermuxBackgroundSyncService.enqueueSync(getApplication())
         }
@@ -375,7 +301,14 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
 
         isSyncingActive.value = true
         syncProgressPercent.value = 0
-        val cmd = "google-drive sync ${recording.fileName} -> gdrive:/Z-CORE Captures/"
+        
+        val folderUriStr = selectedDriveFolderUri.value
+        val cmd = if (folderUriStr != null) {
+            "saf-drive sync ${recording.fileName} -> $folderUriStr"
+        } else {
+            "google-drive sync ${recording.fileName} -> gdrive:/Z-CORE Captures/"
+        }
+        
         activeSyncCommand.value = cmd
 
         syncJob?.cancel()
@@ -390,7 +323,7 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
 
             repository.updateRecording(recording.copy(syncStatus = "SYNCING"))
 
-            val result = googleDriveSyncService.uploadRecordingToDrive(recording, accessToken) { percent ->
+            val progressCallback: suspend (Int) -> Unit = { percent ->
                 syncProgressPercent.value = percent
                 val mbDone = String.format("%.1f", (percent / 100f) * recording.fileSizeMb)
                 repository.logSyncOperation(
@@ -402,33 +335,62 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
                 )
             }
 
-            result.onSuccess { syncRes ->
-                repository.updateRecording(
-                    recording.copy(
-                        isSynced = true,
-                        syncStatus = "CLOUD_SYNCED",
-                        cloudPath = syncRes.cloudPath
+            if (folderUriStr != null) {
+                // Use SAF custom folder integration
+                val uri = android.net.Uri.parse(folderUriStr)
+                val result = safDriveService.uploadToPickedFolder(recording, uri, progressCallback)
+                
+                result.onSuccess { cloudUri ->
+                    repository.updateRecording(
+                        recording.copy(
+                            isSynced = true,
+                            syncStatus = "CLOUD_SYNCED",
+                            cloudPath = cloudUri
+                        )
                     )
-                )
-                repository.logSyncOperation(
-                    recordingId = recording.id,
-                    command = cmd,
-                    status = "SUCCESS",
-                    progress = 100,
-                    bytes = syncRes.bytesTransferred
-                )
-                Toast.makeText(getApplication(), "Synchronisé sur Google Drive (${GoogleDriveSyncService.DRIVE_FOLDER_NAME})", Toast.LENGTH_LONG).show()
-            }.onFailure { err ->
-                repository.updateRecording(recording.copy(syncStatus = "SYNC_FAILED"))
-                repository.logSyncOperation(
-                    recordingId = recording.id,
-                    command = cmd,
-                    status = "FAILED",
-                    progress = syncProgressPercent.value,
-                    bytes = "Échec",
-                    errorMsg = err.localizedMessage
-                )
-                Toast.makeText(getApplication(), "Erreur de sync Google Drive: ${err.localizedMessage}", Toast.LENGTH_LONG).show()
+                    repository.logSyncOperation(
+                        recordingId = recording.id,
+                        command = cmd,
+                        status = "SUCCESS",
+                        progress = 100,
+                        bytes = "${recording.fileSizeMb} MB"
+                    )
+                    Toast.makeText(getApplication(), "Synchronisé via SAF", Toast.LENGTH_LONG).show()
+                }.onFailure { err ->
+                    repository.updateRecording(recording.copy(syncStatus = "SYNC_FAILED"))
+                    repository.logSyncOperation(
+                        recordingId = recording.id, command = cmd, status = "FAILED",
+                        progress = syncProgressPercent.value, bytes = "Échec", errorMsg = err.localizedMessage
+                    )
+                    Toast.makeText(getApplication(), "Erreur SAF: ${err.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
+            } else {
+                // Legacy / Default integration
+                val result = googleDriveSyncService.uploadRecordingToDrive(recording, accessToken, progressCallback)
+                result.onSuccess { syncRes ->
+                    repository.updateRecording(
+                        recording.copy(
+                            isSynced = true,
+                            syncStatus = "CLOUD_SYNCED",
+                            cloudPath = syncRes.cloudPath
+                        )
+                    )
+                    repository.logSyncOperation(
+                        recordingId = recording.id,
+                        command = cmd,
+                        status = "SUCCESS",
+                        progress = 100,
+                        bytes = syncRes.bytesTransferred
+                    )
+                    Toast.makeText(getApplication(), "Synchronisé sur Google Drive (${GoogleDriveSyncService.DRIVE_FOLDER_NAME})", Toast.LENGTH_LONG).show()
+                }.onFailure { err ->
+                    repository.updateRecording(recording.copy(syncStatus = "SYNC_FAILED"))
+                    repository.logSyncOperation(
+                        recordingId = recording.id, command = cmd, status = "FAILED",
+                        progress = syncProgressPercent.value, bytes = "Échec", errorMsg = err.localizedMessage
+                    )
+                    Toast.makeText(getApplication(), "Erreur de sync Google Drive: ${err.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
             }
 
             isSyncingActive.value = false
@@ -471,6 +433,101 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
 
             isSyncingActive.value = false
             Toast.makeText(getApplication(), "Commande exécutée avec succès!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // --- Google Drive API Service Layer Actions ---
+    fun refreshDriveAudioFiles(query: String? = null) {
+        viewModelScope.launch {
+            isDriveLoading.value = true
+            val result = googleDriveApiService.listAudioFiles(
+                query = query ?: driveSearchQuery.value.ifBlank { null },
+                accessToken = driveAccessToken.value
+            )
+            result.onSuccess { files ->
+                driveAudioFiles.value = files
+            }.onFailure { err ->
+                Toast.makeText(getApplication(), "Erreur Google Drive API: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
+            isDriveLoading.value = false
+        }
+    }
+
+    fun searchDriveAudioFiles(query: String) {
+        driveSearchQuery.value = query
+        refreshDriveAudioFiles(query)
+    }
+
+    fun uploadRecordingDirectToDriveApi(recording: AudioRecording, folderId: String? = null) {
+        if (isSyncingActive.value) return
+
+        isSyncingActive.value = true
+        syncProgressPercent.value = 0
+        val cmd = "gdrive api upload ${recording.fileName}"
+        activeSyncCommand.value = cmd
+
+        viewModelScope.launch {
+            repository.logSyncOperation(
+                recordingId = recording.id,
+                command = cmd,
+                status = "IN_PROGRESS",
+                progress = 0,
+                bytes = "0 MB / ${recording.fileSizeMb} MB"
+            )
+            repository.updateRecording(recording.copy(syncStatus = "SYNCING"))
+
+            val result = googleDriveApiService.uploadAudioFile(
+                recording = recording,
+                folderId = folderId,
+                accessToken = driveAccessToken.value,
+                onProgress = { percent ->
+                    syncProgressPercent.value = percent
+                }
+            )
+
+            result.onSuccess { uploadRes ->
+                repository.updateRecording(
+                    recording.copy(
+                        isSynced = true,
+                        syncStatus = "CLOUD_SYNCED",
+                        cloudPath = uploadRes.cloudPath
+                    )
+                )
+                repository.logSyncOperation(
+                    recordingId = recording.id,
+                    command = cmd,
+                    status = "SUCCESS",
+                    progress = 100,
+                    bytes = "${recording.fileSizeMb} MB"
+                )
+                Toast.makeText(getApplication(), "Upload Drive API réussi: ${recording.fileName}", Toast.LENGTH_LONG).show()
+                refreshDriveAudioFiles()
+            }.onFailure { err ->
+                repository.updateRecording(recording.copy(syncStatus = "SYNC_FAILED"))
+                repository.logSyncOperation(
+                    recordingId = recording.id,
+                    command = cmd,
+                    status = "FAILED",
+                    progress = syncProgressPercent.value,
+                    bytes = "Échec",
+                    errorMsg = err.localizedMessage
+                )
+                Toast.makeText(getApplication(), "Erreur upload Drive API: ${err.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+
+            isSyncingActive.value = false
+        }
+    }
+
+    fun deleteDriveAudio(file: DriveAudioFile) {
+        viewModelScope.launch {
+            val result = googleDriveApiService.deleteAudioFile(file.id, driveAccessToken.value)
+            result.onSuccess {
+                driveAudioFiles.value = driveAudioFiles.value.filter { it.id != file.id }
+                Toast.makeText(getApplication(), "Fichier Drive supprimé: ${file.name}", Toast.LENGTH_SHORT).show()
+            }.onFailure { err ->
+                Toast.makeText(getApplication(), "Échec suppression: ${err.localizedMessage}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -534,6 +591,19 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     // --- Macro Actions ---
+    fun saveMacro(name: String, command: String, category: String, description: String) {
+        viewModelScope.launch {
+            val macro = CommandMacro(
+                name = name,
+                commandText = command,
+                category = category,
+                description = description
+            )
+            repository.saveMacro(macro)
+            Toast.makeText(getApplication(), "Macro sauvegardée", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun toggleFavoriteMacro(macro: CommandMacro) {
         viewModelScope.launch {
             repository.toggleFavoriteMacro(macro.id, macro.isFavorite)
@@ -587,6 +657,20 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
                 playerState.value = PlayerState()
             }
             Toast.makeText(getApplication(), "Enregistrement supprimé", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun saveRcloneRemote(name: String, type: String, path: String) {
+        viewModelScope.launch {
+            repository.saveRcloneRemote(RcloneRemote(name = name, type = type, defaultPath = path))
+            Toast.makeText(getApplication(), "Remote Rclone ajouté", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun deleteRcloneRemote(remote: RcloneRemote) {
+        viewModelScope.launch {
+            repository.deleteRcloneRemote(remote)
+            Toast.makeText(getApplication(), "Remote Rclone supprimé", Toast.LENGTH_SHORT).show()
         }
     }
 }

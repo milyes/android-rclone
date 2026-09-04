@@ -1,0 +1,2 @@
+sed -i '/\[versions\]/a vico = "1.13.0"' gradle/libs.versions.toml
+sed -i '/\[libraries\]/a vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }\nvico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }\nvico-core = { group = "com.patrykandpatrick.vico", name = "core", version.ref = "vico" }' gradle/libs.versions.toml

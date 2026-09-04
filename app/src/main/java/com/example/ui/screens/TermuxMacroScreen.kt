@@ -42,18 +42,20 @@ fun TermuxMacroScreen(
 
     var selectedCategory by remember { mutableStateOf("ALL") }
     var showTermuxGuideDialog by remember { mutableStateOf(false) }
+    var showAddMacroDialog by remember { mutableStateOf(false) }
 
     val filteredMacros = remember(macros, selectedCategory) {
         if (selectedCategory == "ALL") macros
         else macros.filter { it.category == selectedCategory }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        // Header Banner & Termux Info Trigger
+    Box(modifier = modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            // Header Banner & Termux Info Trigger
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -69,13 +71,13 @@ fun TermuxMacroScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Macros & Outils Termux / ADB",
+                            text = "Macros de Nettoyage, Rclone & Termux",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "Générez et copiez les commandes système en 1 tap",
+                            text = "Automatisez la maintenance, les transferts et le nettoyage",
                             style = MaterialTheme.typography.bodySmall,
                             color = TextSecondary
                         )
@@ -185,7 +187,7 @@ fun TermuxMacroScreen(
                 "RCLONE" -> 1
                 "TERMUX" -> 2
                 "ADB" -> 3
-                "Z_GHOST" -> 4
+                "CLEANUP" -> 4
                 else -> 0
             },
             edgePadding = 0.dp,
@@ -193,7 +195,7 @@ fun TermuxMacroScreen(
             contentColor = MaterialTheme.colorScheme.primary,
             divider = {}
         ) {
-            val categories = listOf("ALL", "RCLONE", "TERMUX", "ADB", "Z_GHOST")
+            val categories = listOf("ALL", "RCLONE", "TERMUX", "ADB", "CLEANUP")
             categories.forEachIndexed { index, cat ->
                 FilterChip(
                     selected = selectedCategory == cat,
@@ -226,6 +228,15 @@ fun TermuxMacroScreen(
                 )
             }
         }
+    }
+
+    FloatingActionButton(
+        onClick = { showAddMacroDialog = true },
+        modifier = Modifier
+            .align(Alignment.BottomEnd)
+            .padding(16.dp)
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = "Add Macro")
     }
 
     // Termux Info Dialog
@@ -266,7 +277,18 @@ fun TermuxMacroScreen(
             }
         )
     }
-}
+
+    if (showAddMacroDialog) {
+        AddMacroDialog(
+            onDismiss = { showAddMacroDialog = false },
+            onSave = { name, command, category, description ->
+                viewModel.saveMacro(name, command, category, description)
+                showAddMacroDialog = false
+            }
+        )
+    }
+} // close Box
+} // close TermuxMacroScreen
 
 @Composable
 fun MacroCard(
@@ -383,4 +405,78 @@ fun MacroCard(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddMacroDialog(
+    onDismiss: () -> Unit,
+    onSave: (name: String, command: String, category: String, description: String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+    var command by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("TERMUX") }
+    var description by remember { mutableStateOf("") }
+
+    val categories = listOf("TERMUX", "ADB", "RCLONE", "CLEANUP")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Macro") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Macro Name") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = command,
+                    onValueChange = { command = it },
+                    label = { Text("Shell Command") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description (optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Category", style = MaterialTheme.typography.labelMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    categories.forEach { cat ->
+                        FilterChip(
+                            selected = category == cat,
+                            onClick = { category = cat },
+                            label = { Text(cat, fontSize = 10.sp) },
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(name, command, category, description) },
+                enabled = name.isNotBlank() && command.isNotBlank()
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

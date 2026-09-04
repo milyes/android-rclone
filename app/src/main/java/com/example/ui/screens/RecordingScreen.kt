@@ -1,7 +1,8 @@
 package com.example.ui.screens
 
 import android.Manifest
-import androidx.compose.animation.*
+import android.os.Build
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +41,9 @@ fun RecordingScreen(
     val recordings by viewModel.recordings.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val micPermissionState = rememberPermissionState(permission = Manifest.permission.RECORD_AUDIO)
+    val notifPermissionState = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberPermissionState(permission = Manifest.permission.POST_NOTIFICATIONS)
+    } else null
     var customNameInput by remember { mutableStateOf("enregistrement_vocal") }
 
     Column(
@@ -99,17 +103,64 @@ fun RecordingScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
 
+                if (recorderState.isRecording) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.NotificationsActive,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Service d'arrière-plan actif • Notification continue",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Timer Display
-                Text(
-                    text = formatRecordingTime(recorderState.durationSeconds),
-                    style = MaterialTheme.typography.displayMedium,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace,
-                    color = if (recorderState.isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.testTag("recording_timer_text")
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (recorderState.isRecording) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "Blink")
+                        val alpha by infiniteTransition.animateFloat(
+                            initialValue = 1f,
+                            targetValue = 0f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(1000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "Alpha"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.error.copy(alpha = alpha))
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = formatRecordingTime(recorderState.durationSeconds),
+                        style = MaterialTheme.typography.displayMedium,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        color = if (recorderState.isRecording) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.testTag("recording_timer_text")
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -146,6 +197,9 @@ fun RecordingScreen(
                         if (!micPermissionState.status.isGranted) {
                             micPermissionState.launchPermissionRequest()
                         } else {
+                            if (notifPermissionState != null && !notifPermissionState.status.isGranted) {
+                                notifPermissionState.launchPermissionRequest()
+                            }
                             viewModel.toggleRecording(customNameInput)
                         }
                     },
@@ -187,6 +241,21 @@ fun RecordingScreen(
                             Icon(
                                 imageVector = if (recorderState.isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
                                 contentDescription = if (recorderState.isPaused) "Reprendre" else "Mettre en pause"
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { viewModel.cancelRecording() },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f))
+                                .testTag("cancel_recording_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.DeleteOutline,
+                                contentDescription = "Annuler l'enregistrement",
+                                tint = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
                     }

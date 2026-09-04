@@ -33,11 +33,33 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 
+import com.example.ui.screens.LoginScreen
+import com.example.data.viewmodel.AuthViewModel
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
+
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    
+    if (FirebaseApp.getApps(this).isEmpty()) {
+        try {
+            val options = FirebaseOptions.Builder()
+                .setProjectId("dummy-project-id")
+                .setApplicationId("1:1234567890:android:abcdef123456")
+                .setApiKey("dummy-api-key")
+                .build()
+            FirebaseApp.initializeApp(this, options)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     setContent {
+      val authViewModel: AuthViewModel = viewModel()
+      val isUserLoggedIn by authViewModel.isUserLoggedIn.collectAsState()
+
       val viewModel: AudioSyncViewModel = viewModel()
       val themeMode by viewModel.appThemeMode.collectAsState()
       val useDynamicColor by viewModel.isDynamicColorEnabled.collectAsState()
@@ -46,7 +68,16 @@ class MainActivity : ComponentActivity() {
         themeMode = themeMode,
         useDynamicColor = useDynamicColor
       ) {
-        AudioSyncApp(viewModel = viewModel)
+        if (isUserLoggedIn) {
+            AudioSyncApp(viewModel = viewModel, authViewModel = authViewModel)
+        } else {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MaterialTheme.colorScheme.background
+            ) {
+                LoginScreen(authViewModel = authViewModel)
+            }
+        }
       }
     }
   }
@@ -54,7 +85,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel()) {
+fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel(), authViewModel: AuthViewModel = viewModel()) {
   val currentTab by viewModel.currentTab.collectAsState()
   val themeMode by viewModel.appThemeMode.collectAsState()
   val isDynamicColorEnabled by viewModel.isDynamicColorEnabled.collectAsState()
@@ -112,6 +143,17 @@ fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel()) {
           }
         },
         actions = {
+          IconButton(
+            onClick = { authViewModel.logout() },
+            modifier = Modifier.testTag("top_bar_logout_btn")
+          ) {
+            Icon(
+              imageVector = Icons.Filled.Logout,
+              contentDescription = "Logout",
+              tint = MaterialTheme.colorScheme.primary
+            )
+          }
+
           IconButton(
             onClick = { showLicenseDialog = true },
             modifier = Modifier.testTag("top_bar_license_btn")

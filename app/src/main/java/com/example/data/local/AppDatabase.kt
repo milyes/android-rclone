@@ -7,16 +7,18 @@ import androidx.room.RoomDatabase
 import com.example.data.model.AudioRecording
 import com.example.data.model.CommandMacro
 import com.example.data.model.SyncLog
+import com.example.data.model.RcloneRemote
 
 @Database(
-    entities = [AudioRecording::class, SyncLog::class, CommandMacro::class],
-    version = 1,
+    entities = [AudioRecording::class, SyncLog::class, CommandMacro::class, RcloneRemote::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun audioRecordingDao(): AudioRecordingDao
     abstract fun syncLogDao(): SyncLogDao
     abstract fun commandMacroDao(): CommandMacroDao
+    abstract fun rcloneRemoteDao(): RcloneRemoteDao
 
     companion object {
         @Volatile
