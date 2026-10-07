@@ -549,6 +549,7 @@ fun RecorderVaultScreen(
                             viewModel.setTab(com.example.data.viewmodel.NavigationTab.AI_STUDIO)
                         },
                         onDeleteClick = { viewModel.deleteRecording(rec) },
+                        onRenameClick = { newTitle -> viewModel.renameRecording(rec, newTitle) },
                         isSelectionMode = isSelectionMode,
                         isSelected = isSelected,
                         onToggleSelect = { viewModel.toggleRecordingSelection(rec.id) }

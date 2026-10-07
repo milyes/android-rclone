@@ -326,7 +326,8 @@ fun RecordingScreen(
                         viewModel.analyzeRecordingWithAi(item)
                         viewModel.setTab(com.example.data.viewmodel.NavigationTab.AI_STUDIO)
                     },
-                    onDeleteClick = { viewModel.deleteRecording(item) }
+                    onDeleteClick = { viewModel.deleteRecording(item) },
+                    onRenameClick = { newTitle -> viewModel.renameRecording(item, newTitle) }
                 )
             }
         }

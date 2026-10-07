@@ -30,24 +30,28 @@ fun LicenseDialog(
     onDismissRequest: () -> Unit
 ) {
     val context = LocalContext.current
-    val licenseKey = "NSP-IA-2026-X892-PRO-ENTERPRISE"
-    val licenseHolder = "NETSECUREPRO IA"
+    val licenseKey = "NSP-CA-2025-V7-FINAL-ZOUBIROU-IA"
+    val licenseHolder = "NETSECUREPRO.CA"
     val licenseDetails = """
-        LICENCE NETSECUREPRO IA - ACCORD DE LICENCE UTILISATEUR FINAL (EULA)
+        LICENCE NETSECUREPRO.CA - ACCORD DE LICENCE OFFICIEL
+        SYSTÈME: GEMINI CORE V7 PRO FINAL
+        IA_LOGIC_SIGNATURE: ZOUBIROU-IA-2025
         
-        Éditeur: NETSECUREPRO IA Security & Artificial Intelligence Systems
-        Version de Licence: 2026.1 Enterprise Pro
+        Éditeur: NETSECUREPRO.CA Security & Artificial Intelligence Systems
+        Moteur Core: GEMIN CORE V7 PRO FINAL
+        Signature Logique: ZOUBIROU-IA-2025
         ID Licence: $licenseKey
-        Statut: Actif & Vérifié
+        Statut: Mode Actif Réel (Vérifié & Certifié)
         
-        AUTORISATIONS INCLUSES:
-        • Traitement Audio Avancé & Synthèse Vocale Gemini AI
-        • Synchronisation Multi-Cloud Sécurisée (Google Drive & rclone)
-        • Exécution de Macros de Commande Termux & ADB
-        • Chiffrement de Voûte Audio Z-CORE
+        AUTORISATIONS & MODULES ACTIFS:
+        • Traitement Audio Avancé, Voûte Z-CORE & Synthèse GEMINI CORE V7 PRO
+        • Synchronisation Multi-Cloud Sécurisée (Google Drive API v3 & Rclone)
+        • Authentification Google Sign-In & Chiffrement des flux vocaux
+        • Exécution de Macros de Commande Termux & Pont ADB
+        • Signature d'Intégrité IA: ZOUBIROU-IA-2025
         
         RESERVATIONS & DROITS:
-        Tous les droits sont réservés à NETSECUREPRO IA. Ce logiciel est protégé par les lois internationales sur le droit d'auteur et la propriété intellectuelle des systèmes d'intelligence artificielle.
+        Tous droits réservés © 2025-2026 NETSECUREPRO.CA. Ce logiciel et son architecture logique sont protégés par les lois internationales sur le droit d'auteur, la sécurité cloud et la propriété intellectuelle.
     """.trimIndent()
 
     Dialog(onDismissRequest = onDismissRequest) {
@@ -91,13 +95,13 @@ fun LicenseDialog(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "NETSECUREPRO IA",
+                                text = "NETSECUREPRO.CA",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary
                             )
                             Text(
-                                text = "Licence Officielle Enterprise",
+                                text = "GEMIN CORE V7 PRO FINAL",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -149,7 +153,7 @@ fun LicenseDialog(
                                 color = MaterialTheme.colorScheme.primary
                             ) {
                                 Text(
-                                    text = "PRO IA",
+                                    text = "CORE V7 PRO",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.ExtraBold,
@@ -174,6 +178,16 @@ fun LicenseDialog(
                             fontFamily = FontFamily.Monospace,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "IA_LOGIC_SIGNATURE: ZOUBIROU-IA-2025",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
 
@@ -181,7 +195,7 @@ fun LicenseDialog(
 
                 // Features list
                 Text(
-                    text = "Modules Autorisés NETSECUREPRO IA:",
+                    text = "Modules Autorisés NETSECUREPRO.CA (V7 PRO):",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -189,10 +203,11 @@ fun LicenseDialog(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 val modules = listOf(
-                    "Moteur d'Analyse Vocale IA (Gemini)",
-                    "Voûte Chiffrée Z-CORE & Traitement Audio",
-                    "Service de Sync Cloud Google Drive & rclone",
-                    "Exécuteur de Macros Termux & Pont ADB"
+                    "Moteur GEMIN CORE V7 PRO FINAL (Audio & Multi-Cloud)",
+                    "Signature de Validation Logique: ZOUBIROU-IA-2025",
+                    "Voûte Chiffrée Z-CORE & Traitement Audio Réel",
+                    "Service de Sync Cloud Google Drive & Rclone Actif",
+                    "Exécuteur de Macros Termux & Pont ADB en Temps Réel"
                 )
 
                 modules.forEach { item ->
@@ -235,9 +250,9 @@ fun LicenseDialog(
                     OutlinedButton(
                         onClick = {
                             val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("Licence NETSECUREPRO IA", licenseDetails)
+                            val clip = ClipData.newPlainText("Licence NETSECUREPRO.CA", licenseDetails)
                             clipboard.setPrimaryClip(clip)
-                            Toast.makeText(context, "Informations de licence NETSECUREPRO IA copiées !", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Licence NETSECUREPRO.CA (ZOUBIROU-IA-2025) copiée !", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier
                             .weight(1f)

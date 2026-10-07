@@ -660,6 +660,15 @@ class AudioSyncViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    fun renameRecording(recording: AudioRecording, newTitle: String) {
+        if (newTitle.isBlank()) return
+        viewModelScope.launch {
+            val updated = recording.copy(title = newTitle.trim())
+            repository.updateRecording(updated)
+            Toast.makeText(getApplication(), "Enregistrement renommé", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun saveRcloneRemote(name: String, type: String, path: String) {
         viewModelScope.launch {
             repository.saveRcloneRemote(RcloneRemote(name = name, type = type, defaultPath = path))

@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
@@ -45,6 +46,7 @@ fun AudioPlayerCard(
     onSyncClick: () -> Unit,
     onAiAnalyzeClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    onRenameClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
@@ -57,6 +59,36 @@ fun AudioPlayerCard(
 
     val context = LocalContext.current
     var showDetails by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renameInput by remember { mutableStateOf(recording.title) }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = { showRenameDialog = false },
+            title = { Text("Renommer l'enregistrement") },
+            text = {
+                OutlinedTextField(
+                    value = renameInput,
+                    onValueChange = { renameInput = it },
+                    singleLine = true,
+                    label = { Text("Nouveau nom") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onRenameClick(renameInput)
+                    showRenameDialog = false
+                }) {
+                    Text("Renommer")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRenameDialog = false }) {
+                    Text("Annuler")
+                }
+            }
+        )
+    }
 
     Card(
         modifier = modifier
@@ -90,12 +122,29 @@ fun AudioPlayerCard(
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = recording.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = recording.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        IconButton(
+                            onClick = {
+                                renameInput = recording.title
+                                showRenameDialog = true
+                            },
+                            modifier = Modifier.size(28.dp).padding(start = 4.dp).testTag("edit_title_btn_${recording.id}")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = "Renommer",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "${recording.fileName} • ${recording.fileSizeMb} MB",

@@ -136,7 +136,7 @@ fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel(), authViewModel: Aut
               color = MaterialTheme.colorScheme.primary
             )
             Text(
-              text = "Z-CORE Voice & Google Drive Sync Infrastructure",
+              text = "Z-CORE & Google Drive Sync • NETSECUREPRO.CA (V7 PRO)",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -160,7 +160,7 @@ fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel(), authViewModel: Aut
           ) {
             Icon(
               imageVector = Icons.Filled.VerifiedUser,
-              contentDescription = "Licence NETSECUREPRO IA",
+              contentDescription = "Licence NETSECUREPRO.CA (V7 PRO)",
               tint = MaterialTheme.colorScheme.primary
             )
           }

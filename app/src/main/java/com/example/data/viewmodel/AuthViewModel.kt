@@ -1,20 +1,24 @@
 package com.example.data.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.service.GoogleAuthService
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-class AuthViewModel : ViewModel() {
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val _isUserLoggedIn = MutableStateFlow(auth.currentUser != null)
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val googleAuthService = GoogleAuthService(application)
+
+    private val _isUserLoggedIn = MutableStateFlow(checkIfLoggedIn())
     val isUserLoggedIn: StateFlow<Boolean> = _isUserLoggedIn
 
-    private val _userEmail = MutableStateFlow(auth.currentUser?.email ?: "")
+    private val _userEmail = MutableStateFlow(getUserEmail())
     val userEmail: StateFlow<String> = _userEmail
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -25,9 +29,21 @@ class AuthViewModel : ViewModel() {
 
     init {
         auth.addAuthStateListener { firebaseAuth ->
-            _isUserLoggedIn.value = firebaseAuth.currentUser != null
-            _userEmail.value = firebaseAuth.currentUser?.email ?: ""
+            updateLoginState()
         }
+    }
+
+    private fun checkIfLoggedIn(): Boolean {
+        return auth.currentUser != null || googleAuthService.getSignedInAccount() != null
+    }
+
+    private fun getUserEmail(): String {
+        return auth.currentUser?.email ?: googleAuthService.getSignedInAccount()?.email ?: ""
+    }
+
+    fun updateLoginState() {
+        _isUserLoggedIn.value = checkIfLoggedIn()
+        _userEmail.value = getUserEmail()
     }
 
     fun login(email: String, pass: String) {
@@ -40,6 +56,7 @@ class AuthViewModel : ViewModel() {
             _errorMessage.value = null
             try {
                 auth.signInWithEmailAndPassword(email, pass).await()
+                updateLoginState()
             } catch (e: Exception) {
                 _errorMessage.value = e.localizedMessage ?: "Login failed"
             } finally {
@@ -58,6 +75,7 @@ class AuthViewModel : ViewModel() {
             _errorMessage.value = null
             try {
                 auth.createUserWithEmailAndPassword(email, pass).await()
+                updateLoginState()
             } catch (e: Exception) {
                 _errorMessage.value = e.localizedMessage ?: "Registration failed"
             } finally {
@@ -68,11 +86,11 @@ class AuthViewModel : ViewModel() {
 
     fun logout() {
         auth.signOut()
+        googleAuthService.signOut()
+        updateLoginState()
     }
 
-    fun signInWithGoogle() {
-        viewModelScope.launch {
-            _errorMessage.value = "Google Sign-In configuration required (Web Client ID)."
-        }
+    fun setErrorMessage(message: String?) {
+        _errorMessage.value = message
     }
 }

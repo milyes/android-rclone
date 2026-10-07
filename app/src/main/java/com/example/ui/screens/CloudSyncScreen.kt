@@ -146,7 +146,7 @@ fun CloudSyncScreen(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Bridge Cloud RClone & Termux (Z-CORE)",
+                                    text = "Bridge Cloud RClone & Termux • NETSECUREPRO.CA (V7 PRO)",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )

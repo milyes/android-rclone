@@ -1,5 +1,8 @@
 package com.example.ui.screens
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -12,13 +15,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.data.service.GoogleAuthService
 import com.example.data.viewmodel.AuthViewModel
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.common.api.ApiException
 
 @Composable
 fun LoginScreen(authViewModel: AuthViewModel = viewModel()) {
@@ -28,6 +35,23 @@ fun LoginScreen(authViewModel: AuthViewModel = viewModel()) {
 
     val errorMessage by authViewModel.errorMessage.collectAsState()
     val isLoading by authViewModel.isLoading.collectAsState()
+
+    val context = LocalContext.current
+    val googleAuthService = remember { GoogleAuthService(context) }
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            try {
+                task.getResult(ApiException::class.java)
+                authViewModel.updateLoginState()
+            } catch (e: ApiException) {
+                authViewModel.setErrorMessage("Google Sign-In failed: ${e.statusCode}")
+            }
+        } else {
+            authViewModel.setErrorMessage("Google Sign-In canceled.")
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -46,7 +70,9 @@ fun LoginScreen(authViewModel: AuthViewModel = viewModel()) {
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
+
             Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = "Welcome Back",
                 style = MaterialTheme.typography.headlineLarge,
@@ -84,7 +110,6 @@ fun LoginScreen(authViewModel: AuthViewModel = viewModel()) {
                         Icons.Filled.Visibility
                     else Icons.Filled.VisibilityOff
                     val description = if (passwordVisible) "Hide password" else "Show password"
-
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(imageVector = image, contentDescription = description)
                     }
@@ -151,7 +176,7 @@ fun LoginScreen(authViewModel: AuthViewModel = viewModel()) {
             Spacer(modifier = Modifier.height(24.dp))
             
             OutlinedButton(
-                onClick = { authViewModel.signInWithGoogle() },
+                onClick = { launcher.launch(googleAuthService.getSignInIntent()) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
