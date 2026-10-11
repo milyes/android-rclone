@@ -34,21 +34,22 @@ fun LicenseDialog(
     val licenseHolder = "NETSECUREPRO.CA"
     val licenseDetails = """
         LICENCE NETSECUREPRO.CA - ACCORD DE LICENCE OFFICIEL
-        SYSTÈME: GEMINI CORE V7 PRO FINAL
-        IA_LOGIC_SIGNATURE: ZOUBIROU-IA-2025
+        SYSTÈME: GEMIN CORE V7 PRO FINAL
+        IA_LOGIC_SINGNATURE:ZOUBIROU-IA-2025
         
         Éditeur: NETSECUREPRO.CA Security & Artificial Intelligence Systems
         Moteur Core: GEMIN CORE V7 PRO FINAL
-        Signature Logique: ZOUBIROU-IA-2025
+        Signature Logique: IA_LOGIC_SINGNATURE:ZOUBIROU-IA-2025
         ID Licence: $licenseKey
         Statut: Mode Actif Réel (Vérifié & Certifié)
         
         AUTORISATIONS & MODULES ACTIFS:
-        • Traitement Audio Avancé, Voûte Z-CORE & Synthèse GEMINI CORE V7 PRO
+        • Traitement Audio Avancé, Voûte Z-CORE & Synthèse GEMIN CORE V7 PRO FINAL
+        • Capture MediaRecorder AAC 44.1kHz & Contrôles de Lecture Complets
         • Synchronisation Multi-Cloud Sécurisée (Google Drive API v3 & Rclone)
         • Authentification Google Sign-In & Chiffrement des flux vocaux
         • Exécution de Macros de Commande Termux & Pont ADB
-        • Signature d'Intégrité IA: ZOUBIROU-IA-2025
+        • Signature d'Intégrité IA: IA_LOGIC_SINGNATURE:ZOUBIROU-IA-2025
         
         RESERVATIONS & DROITS:
         Tous droits réservés © 2025-2026 NETSECUREPRO.CA. Ce logiciel et son architecture logique sont protégés par les lois internationales sur le droit d'auteur, la sécurité cloud et la propriété intellectuelle.

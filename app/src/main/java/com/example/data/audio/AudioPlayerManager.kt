@@ -116,4 +116,12 @@ class AudioPlayerManager(private val context: Context) {
             0
         }
     }
+
+    fun getDurationSeconds(): Int {
+        return try {
+            (mediaPlayer?.duration ?: 0) / 1000
+        } catch (e: Exception) {
+            0
+        }
+    }
 }

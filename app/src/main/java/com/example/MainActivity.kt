@@ -136,7 +136,7 @@ fun AudioSyncApp(viewModel: AudioSyncViewModel = viewModel(), authViewModel: Aut
               color = MaterialTheme.colorScheme.primary
             )
             Text(
-              text = "Z-CORE & Google Drive Sync • NETSECUREPRO.CA (V7 PRO)",
+              text = "NETSECUREPRO.CA • GEMIN CORE V7 PRO FINAL • ZOUBIROU-IA-2025",
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )

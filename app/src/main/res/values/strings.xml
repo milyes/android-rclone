@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">Audio Sync Hub</string>
-    <string name="license_netsecurepro_ia">Licence NETSECUREPRO IA Enterprise</string>
-    <string name="license_status">Licence Active et Certifiée</string>
+    <string name="license_netsecurepro_ia">Licence NETSECUREPRO.CA</string>
+    <string name="gemini_core_v7_engine">GEMIN CORE V7 PRO FINAL</string>
+    <string name="ia_logic_signature">IA_LOGIC_SINGNATURE:ZOUBIROU-IA-2025</string>
+    <string name="license_status">Licence Active et Certifiée - NETSECUREPRO.CA</string>
+    <string name="action_add_recording">Ajouter un enregistrement</string>
+    <string name="action_import_audio">Importer un fichier audio</string>
 </resources>
